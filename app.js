@@ -17,7 +17,7 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
   if (err) {
-    throw err;
+    console.log(err);
   }
   console.log("Connected to database!");
 });
@@ -27,7 +27,64 @@ app.get("/", (req, res) => {
 });
 
 app.put("/register", (req, res) => {
-  console.log(req.body);
+  db.query(
+    "SELECT * FROM users WHERE email_address = ?",
+    req.body.email,
+    (err, result) => {
+      if (err) {
+        console.log(err);
+      }
+      console.log("first" + result.length, result);
+      if (result.length > 0) {
+        res.send("exists");
+      } else {
+        res.send("doesn't exist");
+        db.query(
+          "INSERT INTO users (first_name, last_name, user_password, email_address, phone_no) VALUES (?, ?, ?, ?, ?)",
+          [
+            req.body.firstName,
+            req.body.lastName,
+            req.body.password,
+            req.body.email,
+            req.body.phone,
+          ],
+          (err, result) => {
+            if (err) {
+              console.log(err);
+            }
+          }
+        );
+      }
+    }
+  );
+});
+
+app.post("/login", (req, res) => {
+  db.query(
+    "SELECT * FROM users WHERE email_address = ?",
+    req.body.email,
+    (err, result) => {
+      if (err) {
+        console.log(err);
+      } else if (result.length == 0) {
+        res.send("invalid email");
+      } else {
+        db.query(
+          "SELECT * FROM users WHERE user_password = ? AND email_address = ?",
+          [req.body.password, req.body.email],
+          (err, result) => {
+            if (err) {
+              console.log(err);
+            } else if (result.length == 0) {
+              res.send("invalid password");
+            } else {
+              res.send("valid");
+            }
+          }
+        );
+      }
+    }
+  );
 });
 
 app.listen(port, () => {

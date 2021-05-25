@@ -61,25 +61,32 @@ app.put("/register", (req, res) => {
 
 app.post("/login", (req, res) => {
   db.query(
-    "SELECT * FROM users WHERE email_address = ?",
+    "SELECT email_address FROM users WHERE email_address = ?",
     req.body.email,
     (err, result) => {
       if (err) {
         console.log(err);
-      } else if (result.length == 0) {
+      } else if (
+        result.length == 0 ||
+        result[0].email_address !== req.body.email
+      ) {
         res.send("invalid email");
       } else {
         db.query(
-          "SELECT * FROM users WHERE user_password = ? AND email_address = ?",
+          "SELECT user_password FROM users WHERE user_password = ? AND email_address = ?",
           [req.body.password, req.body.email],
           (err, result) => {
             if (err) {
               console.log(err);
-            } else if (result.length == 0) {
+            } else if (
+              result.length == 0 ||
+              result[0].user_password !== req.body.password
+            ) {
               res.send("invalid password");
             } else {
               res.send("valid");
             }
+            console.log("password rows", result);
           }
         );
       }

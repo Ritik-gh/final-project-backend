@@ -19,7 +19,7 @@ db.connect((err) => {
   if (err) {
     console.log(err);
   }
-  console.log("Connected to database!");
+  console.log("Anyway, Connected to database!");
 });
 
 app.get("/", (req, res) => {
@@ -94,6 +94,10 @@ app.post("/login", (req, res) => {
   );
 });
 
+app.put("/post", (req, res) => {
+  console.log(req.body);
+});
+
 app.listen(port, () => {
-  console.log("I am listening!");
+  console.log("I am listening, But You Don't!");
 });

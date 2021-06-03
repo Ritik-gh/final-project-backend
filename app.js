@@ -1,11 +1,27 @@
 const express = require("express");
 const mysql = require("mysql");
 const cors = require("cors");
+const multer = require("multer");
+const path = require("path");
 
 const app = express();
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "./images/db-images");
+  },
+  filename: function (req, file, cb) {
+    cb(
+      null,
+      file.fieldname + "-" + Date.now() + path.extname(file.originalname)
+    );
+  },
+});
+const upload = multer({
+  storage: storage,
+});
 port = 3030;
 
 const db = mysql.createConnection({
@@ -94,7 +110,8 @@ app.post("/login", (req, res) => {
   );
 });
 
-app.put("/post", (req, res) => {
+app.post("/post", upload.single("img"), (req, res) => {
+  res.send(req.file);
   console.log(req.body);
 });
 

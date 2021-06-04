@@ -10,12 +10,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "./images/db-images");
+    cb(null, "./images/db-images/items");
   },
   filename: function (req, file, cb) {
     cb(
       null,
-      file.fieldname + "-" + Date.now() + path.extname(file.originalname)
+      path.basename(file.originalname, path.extname(file.originalname)) +
+        "-" +
+        Date.now() +
+        path.extname(file.originalname)
     );
   },
 });
@@ -110,7 +113,7 @@ app.post("/login", (req, res) => {
   );
 });
 
-app.post("/post", upload.single("img"), (req, res) => {
+app.post("/post-ad", upload.single("img"), (req, res) => {
   res.send(req.file);
   console.log(req.body);
 });

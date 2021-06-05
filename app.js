@@ -3,11 +3,13 @@ const mysql = require("mysql");
 const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
+const bcrypt = require("bcrypt");
 
 const app = express();
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "./images/db-images/items");
@@ -22,6 +24,7 @@ const storage = multer.diskStorage({
     );
   },
 });
+
 const upload = multer({
   storage: storage,
 });
@@ -49,21 +52,21 @@ app.put("/register", (req, res) => {
   db.query(
     "SELECT * FROM users WHERE email_address = ?",
     req.body.email,
-    (err, result) => {
+    async (err, result) => {
       if (err) {
         console.log(err);
       }
-      console.log("first" + result.length, result);
       if (result.length > 0) {
-        res.send("exists");
+        res.send("already exists");
       } else {
         res.send("doesn't exist");
+        const hashedPassword = await bcrypt.hash(req.body.password, 10);
         db.query(
           "INSERT INTO users (first_name, last_name, user_password, email_address, phone_no) VALUES (?, ?, ?, ?, ?)",
           [
             req.body.firstName,
             req.body.lastName,
-            req.body.password,
+            hashedPassword,
             req.body.email,
             req.body.phone,
           ],
@@ -92,20 +95,22 @@ app.post("/login", (req, res) => {
         res.send("invalid email");
       } else {
         db.query(
-          "SELECT user_password FROM users WHERE user_password = ? AND email_address = ?",
-          [req.body.password, req.body.email],
-          (err, result) => {
+          "SELECT user_password FROM users WHERE email_address = ?",
+          req.body.email,
+          async (err, result) => {
             if (err) {
               console.log(err);
             } else if (
               result.length == 0 ||
-              result[0].user_password !== req.body.password
+              !(await bcrypt.compare(
+                req.body.password,
+                result[0].user_password
+              ))
             ) {
               res.send("invalid password");
             } else {
               res.send("valid");
             }
-            console.log("password rows", result);
           }
         );
       }
@@ -113,9 +118,29 @@ app.post("/login", (req, res) => {
   );
 });
 
+// result[0].user_password !== req.body.password
+
 app.post("/post-ad", upload.single("img"), (req, res) => {
-  res.send(req.file);
+  res.send("post data received");
   console.log(req.body);
+  db.query(
+    "INSERT INTO posts (item_name, items_estimated_age, location, base_price, about, item_image) VALUES(? , ?, ?, ?,?, ?)",
+    [
+      req.body.name,
+      req.body.age,
+      req.body.location,
+      req.body.basePrice,
+      req.body.description,
+      req.file.path,
+    ],
+    (err, result) => {
+      if (err) {
+        console.log(err);
+      } else {
+        console.log("post added to database");
+      }
+    }
+  );
 });
 
 app.listen(port, () => {

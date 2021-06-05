@@ -4,6 +4,9 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const { jwtKey } = require("./config.js");
+const { authorizeUser } = require("./middleware/auth.js");
 
 const app = express();
 app.use(cors());
@@ -109,7 +112,9 @@ app.post("/login", (req, res) => {
             ) {
               res.send("invalid password");
             } else {
-              res.send("valid");
+              const authToken = jwt.sign({ email: req.body.email }, jwtKey);
+              res.statusCode = 201;
+              res.send(authToken);
             }
           }
         );
@@ -120,27 +125,27 @@ app.post("/login", (req, res) => {
 
 // result[0].user_password !== req.body.password
 
-app.post("/post-ad", upload.single("img"), (req, res) => {
-  res.send("post data received");
+app.post("/post-ad", upload.single("img"), authorizeUser, (req, res) => {
   console.log(req.body);
-  db.query(
-    "INSERT INTO posts (item_name, items_estimated_age, location, base_price, about, item_image) VALUES(? , ?, ?, ?,?, ?)",
-    [
-      req.body.name,
-      req.body.age,
-      req.body.location,
-      req.body.basePrice,
-      req.body.description,
-      req.file.path,
-    ],
-    (err, result) => {
-      if (err) {
-        console.log(err);
-      } else {
-        console.log("post added to database");
-      }
-    }
-  );
+  res.send("post data received");
+  // db.query(
+  //   "INSERT INTO posts (item_name, items_estimated_age, location, base_price, about, item_image) VALUES(? , ?, ?, ?, ?, ?)",
+  //   [
+  //     req.body.name,
+  //     req.body.age,
+  //     req.body.location,
+  //     req.body.basePrice,
+  //     req.body.description,
+  //     req.file.path,
+  //   ],
+  //   (err, result) => {
+  //     if (err) {
+  //       console.log(err);
+  //     } else {
+  //       console.log("post added to database");
+  //     }
+  //   }
+  // );
 });
 
 app.listen(port, () => {

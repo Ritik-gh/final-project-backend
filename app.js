@@ -128,24 +128,39 @@ app.post("/login", (req, res) => {
 app.post("/post-ad", upload.single("img"), authorizeUser, (req, res) => {
   console.log(req.body);
   res.send("post data received");
-  // db.query(
-  //   "INSERT INTO posts (item_name, items_estimated_age, location, base_price, about, item_image) VALUES(? , ?, ?, ?, ?, ?)",
-  //   [
-  //     req.body.name,
-  //     req.body.age,
-  //     req.body.location,
-  //     req.body.basePrice,
-  //     req.body.description,
-  //     req.file.path,
-  //   ],
-  //   (err, result) => {
-  //     if (err) {
-  //       console.log(err);
-  //     } else {
-  //       console.log("post added to database");
-  //     }
-  //   }
-  // );
+  let id;
+  db.query(
+    "SELECT id FROM users WHERE email_address = ?",
+    req.body.user_email,
+    (err, result) => {
+      if (err) {
+        console.log(err);
+      } else {
+        id = result[0].id;
+      }
+      db.query(
+        "INSERT INTO posts (item_name, items_estimated_age, location, base_price, about, item_image, id) VALUES(? , ?, ?, ?, ?, ?, ?)",
+        [
+          req.body.name,
+          req.body.age,
+          req.body.location,
+          req.body.basePrice,
+          req.body.description,
+          req.file.path,
+          id,
+        ],
+        (err, result) => {
+          if (err) {
+            console.log(err);
+          } else {
+            console.log("post added to database");
+          }
+        }
+      );
+      console.log("result", result);
+    }
+  );
+  console.log("this is id", id);
 });
 
 app.listen(port, () => {

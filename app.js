@@ -168,14 +168,30 @@ app.post("/post-ad", upload.single("img"), authorizeUser, (req, res) => {
   console.log("this is id", id);
 });
 
-app.get("/get-posts", (req, res) => {
-  db.query("SELECT * FROM posts", (err, result) => {
-    if (err) {
-      console.log(err);
-    } else {
-      res.send(result);
-    }
-  });
+app.get("/get-posts/", (req, res) => {
+  if (!req.query.postId) {
+    console.log("no id");
+    db.query("SELECT * FROM posts", (err, result) => {
+      if (err) {
+        console.log(err);
+      } else {
+        res.send(result);
+      }
+    });
+  } else {
+    db.query(
+      "SELECT * FROM posts WHERE post_id = ?",
+      req.query.postId,
+      (err, result) => {
+        if (err) {
+          console.log(err);
+        } else {
+          res.send(result[0]);
+        }
+        console.log("post result", result[0]);
+      }
+    );
+  }
 });
 
 app.listen(port, () => {

@@ -12,10 +12,12 @@ const app = express();
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+// serve images
+app.use("/images", express.static("images"));
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "./images/db-images/items");
+    cb(null, "./images/db-images/posts");
   },
   filename: function (req, file, cb) {
     cb(
@@ -31,10 +33,11 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
 });
-port = 3030;
+const host = "localhost";
+const port = 3030;
 
 const db = mysql.createConnection({
-  host: "localhost",
+  host: host,
   user: "ritik",
   password: "1234",
   database: "fp_cs50",
@@ -126,7 +129,7 @@ app.post("/login", (req, res) => {
 // result[0].user_password !== req.body.password
 
 app.post("/post-ad", upload.single("img"), authorizeUser, (req, res) => {
-  console.log(req.body);
+  console.log(req.file);
   res.send("post data received");
   let id;
   db.query(
@@ -146,7 +149,9 @@ app.post("/post-ad", upload.single("img"), authorizeUser, (req, res) => {
           req.body.location,
           req.body.basePrice,
           req.body.description,
-          req.file.path,
+          `http://${host}:${port}/${req.file.destination.slice(2)}/${
+            req.file.filename
+          }`,
           id,
         ],
         (err, result) => {
@@ -161,6 +166,16 @@ app.post("/post-ad", upload.single("img"), authorizeUser, (req, res) => {
     }
   );
   console.log("this is id", id);
+});
+
+app.get("/get-posts", (req, res) => {
+  db.query("SELECT * FROM posts", (err, result) => {
+    if (err) {
+      console.log(err);
+    } else {
+      res.send(result);
+    }
+  });
 });
 
 app.listen(port, () => {

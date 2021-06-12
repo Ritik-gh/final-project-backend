@@ -7,7 +7,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon app.js",
-    "instart": "nodemon --inspect-brk app.js"
+    "inspect": "nodemon --inspect app.js",
+    "inspect-brk": "nodemon --inspect-brk app.js"
   },
   "keywords": [],
   "author": "",

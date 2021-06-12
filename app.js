@@ -182,13 +182,43 @@ app.get("/get-posts/", (req, res) => {
     db.query(
       "SELECT * FROM posts WHERE post_id = ?",
       req.query.postId,
-      (err, result) => {
+      (err, postsResult) => {
         if (err) {
           console.log(err);
         } else {
-          res.send(result[0]);
+          postsResult[0].postedBySelf = false;
+          if (req.query.user) {
+            jwt.verify(req.query.user, jwtKey, (err, tokenResult) => {
+              if (err) {
+                res.sendStatus(401);
+              } else {
+                db.query(
+                  "SELECT id FROM users WHERE email_address = ?",
+                  tokenResult.email,
+                  (err, usersResult) => {
+                    if (err) {
+                      console.log(err);
+                    } else {
+                      if (
+                        usersResult.length === 1 &&
+                        usersResult[0].id === postsResult[0].id
+                      ) {
+                        postsResult[0].postedBySelf = true;
+                        res.send(postsResult[0]);
+                      } else {
+                        res.send(postsResult[0]);
+                      }
+                    }
+                  }
+                );
+                console.log("token result", tokenResult);
+              }
+            });
+          } else {
+            res.send(postsResult[0]);
+          }
         }
-        console.log("post result", result[0]);
+        console.log("post result", postsResult[0]);
       }
     );
   }

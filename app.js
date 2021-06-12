@@ -51,7 +51,7 @@ db.connect((err) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("<h1>Hello Express!</h1>");
+  res.send("<h1>Final Project Backend!</h1>");
 });
 
 app.put("/register", (req, res) => {
@@ -222,6 +222,33 @@ app.get("/get-posts/", (req, res) => {
       }
     );
   }
+});
+
+app.get("/get-profile", authorizeUser, (req, res) => {
+  db.query(
+    "SELECT id, first_name, last_name, email_address FROM users WHERE email_address = ?",
+    req.body.user_email,
+    (err, usersResult) => {
+      if (err) {
+        console.log(err);
+      } else {
+        db.query(
+          "SELECT * FROM posts WHERE id = ?",
+          usersResult[0].id,
+          (err, postsResult) => {
+            if (err) {
+              console.log(err);
+            } else {
+              res.send({
+                user: usersResult[0],
+                posts: postsResult,
+              });
+            }
+          }
+        );
+      }
+    }
+  );
 });
 
 app.listen(port, () => {

@@ -162,10 +162,8 @@ app.post("/post-ad", upload.single("img"), authorizeUser, (req, res) => {
           }
         }
       );
-      console.log("result", result);
     }
   );
-  console.log("this is id", id);
 });
 
 app.get("/get-posts/", (req, res) => {
@@ -211,14 +209,12 @@ app.get("/get-posts/", (req, res) => {
                     }
                   }
                 );
-                console.log("token result", tokenResult);
               }
             });
           } else {
             res.send(postsResult[0]);
           }
         }
-        console.log("post result", postsResult[0]);
       }
     );
   }
@@ -230,19 +226,43 @@ app.get("/get-profile", authorizeUser, (req, res) => {
     req.body.user_email,
     (err, usersResult) => {
       if (err) {
-        console.log(err);
+        res.send(err);
       } else {
         db.query(
           "SELECT * FROM posts WHERE id = ?",
           usersResult[0].id,
           (err, postsResult) => {
             if (err) {
-              console.log(err);
+              res.send(err);
             } else {
               res.send({
                 user: usersResult[0],
                 posts: postsResult,
               });
+            }
+          }
+        );
+      }
+    }
+  );
+});
+
+app.put("/place-bid", authorizeUser, (req, res) => {
+  db.query(
+    "SELECT id FROM users WHERE email_address = ?",
+    req.body.user_email,
+    (err, usersResult) => {
+      if (err) {
+        console.log(err);
+      } else {
+        db.query(
+          "UPDATE posts SET highest_bid = ?  WHERE post_id = ?",
+          [req.body.bidPrice, req.body.postId],
+          (err, postsResult) => {
+            if (err) {
+              console.log(err);
+            } else {
+              res.send("Bid Placed");
             }
           }
         );

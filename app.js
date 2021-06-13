@@ -8,6 +8,7 @@ const jwt = require("jsonwebtoken");
 const { jwtKey } = require("./config.js");
 const { authorizeUser } = require("./middleware/auth.js");
 const { readdirSync } = require("fs");
+const { equal } = require("assert");
 
 const app = express();
 app.use(cors());
@@ -262,14 +263,14 @@ app.get("/get-profile", authorizeUser, (req, res) => {
     req.body.user_email,
     (err, usersResult) => {
       if (err) {
-        res.send(err);
+        console.log(err);
       } else {
         db.query(
           "SELECT * FROM posts WHERE id = ?",
           usersResult[0].id,
           (err, postsResult) => {
             if (err) {
-              res.send(err);
+              console.log(err);
             } else {
               res.send({
                 user: usersResult[0],
@@ -316,9 +317,79 @@ app.put("/mark-sold", authorizeUser, (req, res) => {
       req.body.postId,
       (err, postsResult) => {
         if (err) {
-          res.send(err);
+          console.log(err);
         } else {
           res.send("Marked as Sold");
+        }
+      }
+    );
+  }
+});
+
+app.get("/get-chats", authorizeUser, (req, res) => {
+  db.query(
+    "SELECT id FROM users WHERE email_address = ?",
+    req.body.user_email,
+    (err, usersResult) => {
+      if (err) {
+        console.log(err);
+      } else {
+        db.query(
+          "SELECT * FROM chats WHERE sender_id OR receiver_id = ?",
+          usersResult[0].id,
+          (err, chatsResult) => {
+            if (err) {
+              console.log(err);
+            } else {
+              res.send(chatsResult);
+            }
+          }
+        );
+      }
+    }
+  );
+});
+
+app.get("/get-user", authorizeUser, (req, res) => {
+  if (!req.query.userId) {
+    res.send("Send User Id!");
+  } else {
+    db.query(
+      "SELECT * FROM users WHERE id = ?",
+      req.query.userId,
+      (err, result) => {
+        if (err) {
+          console.log(err);
+        } else {
+          res.send(result[0]);
+        }
+      }
+    );
+  }
+});
+
+app.put("/post-msg", authorizeUser, (req, res) => {
+  if (!req.body.msg) {
+    res.send("Send in the message to post!");
+  } else if (!req.body.receiverId) {
+    res.send("Send in the sender id!");
+  } else {
+    db.query(
+      "SELECT id FROM users WHERE email_address = ?",
+      req.body.user_email,
+      (err, senderResult) => {
+        if (err) {
+          console.log(err);
+        } else {
+          db.query(
+            "INSERT INTO chats (receiver_id, sender_id, msg) VALUES(?, ?, ?)",
+            req.body.receiverId,
+            senderResult[0].id,
+            req.body.msg,
+            (err, chatsResult) => {
+              res.send("Message added!");
+            }
+          );
         }
       }
     );

@@ -7,6 +7,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { jwtKey } = require("./config.js");
 const { authorizeUser } = require("./middleware/auth.js");
+const { readdirSync } = require("fs");
 
 const app = express();
 app.use(cors());
@@ -304,6 +305,24 @@ app.put("/place-bid", authorizeUser, (req, res) => {
       }
     }
   );
+});
+
+app.put("/mark-sold", authorizeUser, (req, res) => {
+  if (!req.body.postId) {
+    res.send("Send Post Id!");
+  } else {
+    db.query(
+      "UPDATE posts SET post_status = 'sold' WHERE post_id = ?",
+      req.body.postId,
+      (err, postsResult) => {
+        if (err) {
+          res.send(err);
+        } else {
+          res.send("Marked as Sold");
+        }
+      }
+    );
+  }
 });
 
 app.listen(port, () => {

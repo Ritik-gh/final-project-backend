@@ -167,6 +167,7 @@ app.post("/post-ad", upload.single("img"), authorizeUser, (req, res) => {
 });
 
 app.get("/get-posts/", (req, res) => {
+  // sends all posts
   if (!req.query.postId) {
     console.log("no id");
     db.query("SELECT * FROM posts", (err, result) => {
@@ -176,7 +177,9 @@ app.get("/get-posts/", (req, res) => {
         res.send(result);
       }
     });
-  } else {
+  }
+  // sends particular post
+  else {
     db.query(
       "SELECT * FROM posts WHERE post_id = ?",
       req.query.postId,
@@ -185,11 +188,14 @@ app.get("/get-posts/", (req, res) => {
           console.log(err);
         } else {
           postsResult[0].postedBySelf = false;
+          // if user is logged in, verify user
           if (req.query.user) {
             jwt.verify(req.query.user, jwtKey, (err, tokenResult) => {
               if (err) {
                 res.sendStatus(401);
-              } else {
+              }
+              // query user details
+              else {
                 db.query(
                   "SELECT id FROM users WHERE email_address = ?",
                   tokenResult.email,
@@ -197,13 +203,40 @@ app.get("/get-posts/", (req, res) => {
                     if (err) {
                       console.log(err);
                     } else {
+                      // check if the logged in user had created the requested post, if yes, send it with boolean
                       if (
                         usersResult.length === 1 &&
                         usersResult[0].id === postsResult[0].id
                       ) {
                         postsResult[0].postedBySelf = true;
-                        res.send(postsResult[0]);
-                      } else {
+                        // check if the post has got any bids
+                        if (
+                          postsResult[0].highest_bid &&
+                          postsResult[0].highest_bidder_id
+                        ) {
+                          db.query(
+                            "SELECT * FROM users WHERE id = ?",
+                            postsResult[0].highest_bidder_id,
+                            (err, biddersResult) => {
+                              if (err) {
+                                res.send(err);
+                              } else {
+                                // send the post and the bidder details
+                                res.send({
+                                  post: postsResult[0],
+                                  bidderDetails: biddersResult[0],
+                                });
+                              }
+                            }
+                          );
+                        }
+                        // if no bids yet, send just the post
+                        else {
+                          res.send(postsResult[0]);
+                        }
+                      }
+                      // if post not self created, send post without boolean
+                      else {
                         res.send(postsResult[0]);
                       }
                     }
@@ -211,7 +244,9 @@ app.get("/get-posts/", (req, res) => {
                 );
               }
             });
-          } else {
+          }
+          // if user is not logged in
+          else {
             res.send(postsResult[0]);
           }
         }
@@ -249,15 +284,15 @@ app.get("/get-profile", authorizeUser, (req, res) => {
 
 app.put("/place-bid", authorizeUser, (req, res) => {
   db.query(
-    "SELECT id FROM users WHERE email_address = ?",
+    "SELECT * FROM users WHERE email_address = ?",
     req.body.user_email,
     (err, usersResult) => {
       if (err) {
         console.log(err);
       } else {
         db.query(
-          "UPDATE posts SET highest_bid = ?  WHERE post_id = ?",
-          [req.body.bidPrice, req.body.postId],
+          "UPDATE posts SET highest_bid = ?, highest_bidder_id = ?  WHERE post_id = ?",
+          [req.body.bidPrice, usersResult[0].id, req.body.postId],
           (err, postsResult) => {
             if (err) {
               console.log(err);

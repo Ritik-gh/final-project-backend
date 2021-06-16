@@ -5,12 +5,26 @@ const multer = require("multer");
 const path = require("path");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { jwtKey } = require("./config.js");
+const { jwtKey, host, port } = require("./config.js");
 const { authorizeUser } = require("./middleware/auth.js");
 const { readdirSync } = require("fs");
 const { equal } = require("assert");
-
+const { Socket } = require("dgram");
 const app = express();
+const httpServer = require("http").createServer(app);
+const io = require("socket.io")(httpServer, {
+  cors: {
+    origin: "*",
+  },
+});
+
+httpServer.listen(port, () => {
+  console.log("I am listening, But You Don't!");
+});
+io.on("connection", (socket) => {
+  console.log("Socket connected");
+});
+
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -35,8 +49,6 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
 });
-const host = "localhost";
-const port = 3030;
 
 const db = mysql.createConnection({
   host: host,
@@ -394,8 +406,4 @@ app.put("/post-msg", authorizeUser, (req, res) => {
       }
     );
   }
-});
-
-app.listen(port, () => {
-  console.log("I am listening, But You Don't!");
 });

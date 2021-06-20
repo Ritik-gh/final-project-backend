@@ -7,9 +7,19 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { jwtKey, host, port } = require("./config.js");
 const { authorizeUser } = require("./middleware/auth.js");
-const { readdirSync } = require("fs");
-const { equal } = require("assert");
-const { Socket } = require("dgram");
+const db = mysql.createConnection({
+  host: host,
+  user: "ritik",
+  password: "1234",
+  database: "fp_cs50",
+});
+
+db.connect((err) => {
+  if (err) {
+    console.log(err);
+  }
+  console.log("Anyway, Connected to database!");
+});
 const app = express();
 const httpServer = require("http").createServer(app);
 const io = require("socket.io")(httpServer, {
@@ -21,8 +31,47 @@ const io = require("socket.io")(httpServer, {
 httpServer.listen(port, () => {
   console.log("I am listening, But You Don't!");
 });
+
+// connecting sockets
 io.on("connection", (socket) => {
-  console.log("Socket connected");
+  console.log("socket id", socket.id);
+  const senderId = socket.handshake.auth.token;
+  console.log({ senderId });
+  if (!senderId) {
+    io.emit("connect_error", "Send auth token");
+  } else {
+    jwt.verify(senderId, jwtKey, (err, jwtResult) => {
+      if (err) {
+        socket.emit("connect_error", new Error("Connection error"));
+      } else {
+        db.query(
+          "SELECT id FROM users WHERE email_address = ?",
+          jwtResult.email,
+          (err, usersResult) => {
+            if (err) {
+              socket.emit("connect_error", "User not Found");
+            } else {
+              socket.join(usersResult[0].id.toString());
+              socket.on("send_msg", ({ msg, receiverId }) => {
+                io.to(receiverId).emit("receive_msg", msg);
+                db.query(
+                  "INSERT INTO chats (sender_id, receiver_id, msg) VALUES(?, ?, ?)",
+                  [usersResult[0].id, receiverId, msg],
+                  (err, chatsResult) => {
+                    if (err) {
+                      console.log(err);
+                    } else {
+                      console.log("message added to chats table");
+                    }
+                  }
+                );
+              });
+            }
+          }
+        );
+      }
+    });
+  }
 });
 
 app.use(cors());
@@ -48,20 +97,6 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-});
-
-const db = mysql.createConnection({
-  host: host,
-  user: "ritik",
-  password: "1234",
-  database: "fp_cs50",
-});
-
-db.connect((err) => {
-  if (err) {
-    console.log(err);
-  }
-  console.log("Anyway, Connected to database!");
 });
 
 app.get("/", (req, res) => {

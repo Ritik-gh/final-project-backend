@@ -20,6 +20,47 @@ db.connect((err) => {
   }
   console.log("Anyway, Connected to database!");
 });
+
+// create tables if not there
+// db.query(
+//   `CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT NOT NULL,
+//   first_name VARCHAR(50) NOT NULL, last_name VARCHAR(50) NOT NULL,
+//   password VARCHAR(255) NOT NULL, email_address VARCHAR(255) NOT NULL,
+//   phone_no INT NOT NULL, PRIMARY KEY (id));`,
+//   (err, result) => {
+//     if (err) {
+//       console.log(err);
+//     } else {
+//       console.log("users table created");
+//     }
+//   }
+// );
+
+// db.query(
+//   ` CREATE TABLE IF NOT EXISTS posts (post_id INT AUTO_INCREMENT NOT NULL, base_price INT NOT NULL, highest_bid INT, location VARCHAR(255) NOT NULL,
+// about VARCHAR(1000) NOT NULL, item_name VARCHAR(500) NOT NULL, items_estimated_age VARCHAR(100), area VARCHAR(50), highest_bidder_id INT NOT NULL,
+// post_status VARCHAR(50) NOT NULL DEFAULT "unsold", item_image VARCHAR(1000) NOT NULL, id INT NOT NULL, FOREIGN KEY (id) REFERENCES users(id), PRIMARY KEY (post_id)); `,
+//   (err, result) => {
+//     if (err) {
+//       console.log(err);
+//     } else {
+//       console.log("posts table created");
+//     }
+//   }
+// );
+
+// db.query(
+//   ` CREATE TABLE IF NOT EXISTS chats (chat_id INT AUTO_INCREMENT NOT NULL, sender_id INT NOT NULL, receiver_id INT NOT NULL, msg TEXT NOT NULL, msg_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+//   FOREIGN KEY (sender_id) REFERENCES users(id),FOREIGN KEY (receiver_id) REFERENCES users(id) , PRIMARY KEY (chat_id));`,
+//   (err, result) => {
+//     if (err) {
+//       console.log(err);
+//     } else {
+//       console.log("chats table created");
+//     }
+//   }
+// );
+
 const app = express();
 const httpServer = require("http").createServer(app);
 const io = require("socket.io")(httpServer, {
@@ -34,25 +75,37 @@ httpServer.listen(port, () => {
 
 // connecting sockets
 io.on("connection", (socket) => {
-  console.log("socket id", socket.id);
+  // token of user who just connected
   const senderId = socket.handshake.auth.token;
-  console.log({ senderId });
+
+  // if token not sent, emit error
   if (!senderId) {
     io.emit("connect_error", "Send auth token");
-  } else {
+  }
+  // verify user
+  else {
     jwt.verify(senderId, jwtKey, (err, jwtResult) => {
+      // if not authorised
       if (err) {
-        socket.emit("connect_error", new Error("Connection error"));
-      } else {
+        socket.emit("connect_error", new Error("Unauthorised user id"));
+      }
+      // get id from table
+      else {
         db.query(
-          "SELECT id FROM users WHERE email_address = ?",
+          "SELECT * FROM users WHERE email_address = ?",
           jwtResult.email,
           (err, usersResult) => {
             if (err) {
               socket.emit("connect_error", "User not Found");
             } else {
+              // join user to its own private room, and listen for upcoming messages
               socket.join(usersResult[0].id.toString());
+              console.log(
+                `${usersResult[0].first_name} joined with id ${usersResult[0].id}`
+              );
               socket.on("send_msg", ({ msg, receiverId }) => {
+                console.log(`${msg} was sent to ${receiverId}`);
+                // send the message to recipient, and add the message to table
                 io.to(receiverId).emit("receive_msg", msg);
                 db.query(
                   "INSERT INTO chats (sender_id, receiver_id, msg) VALUES(?, ?, ?)",
@@ -374,21 +427,96 @@ app.put("/mark-sold", authorizeUser, (req, res) => {
 });
 
 app.get("/get-chats", authorizeUser, (req, res) => {
+  let processedChats = [];
   db.query(
     "SELECT id FROM users WHERE email_address = ?",
     req.body.user_email,
-    (err, usersResult) => {
+    (err, applicantResult) => {
       if (err) {
         console.log(err);
       } else {
         db.query(
           "SELECT * FROM chats WHERE sender_id OR receiver_id = ?",
-          usersResult[0].id,
+          applicantResult[0].id,
           (err, chatsResult) => {
             if (err) {
               console.log(err);
             } else {
-              res.send(chatsResult);
+              async function getUserDetails(chat, type) {
+                return new Promise((resolve, reject) => {
+                  resolve(
+                    db.query(
+                      "SELECT * FROM users WHERE id = ?",
+                      type === "sent" ? chat.receiver_id : chat.sender_id,
+                      (err, enduserResult) => {
+                        if (err) {
+                          console.log(err);
+                        } else {
+                          processedChats.push({
+                            enduser: {
+                              id: enduserResult[0].id,
+                              firstName: enduserResult[0].first_name,
+                              lastName: enduserResult[0].last_name,
+                            },
+                            msgs: [
+                              {
+                                type: type,
+                                msg: chat.msg,
+                              },
+                            ],
+                          });
+                        }
+                      }
+                    )
+                  );
+                });
+              }
+              chatsResult.forEach(async (chat, index) => {
+                console.log("length is ", processedChats.length);
+                if (processedChats.length > 0) {
+                  let enduserFound = false;
+                  processedChats.forEach(async (processedChat) => {
+                    if (processedChat.enduser.id === chat.receiver_id) {
+                      processedChat.msgs.push({
+                        type: "sent",
+                        msg: chat.msg,
+                      });
+                      enduserFound = true;
+                    } else if (processedChat.enduser.id === chat.sender_id) {
+                      processedChat.msgs.push({
+                        type: "received",
+                        msg: chat.msg,
+                      });
+                      enduserFound = true;
+                    }
+                  });
+                  if (!enduserFound) {
+                    if (chat.receiver_id === applicantResult[0].id) {
+                      await getUserDetails(chat, "received");
+                      console.log(processedChats);
+                    } else {
+                      await getUserDetails(chat, "sent");
+                      console.log(processedChats);
+                    }
+                  }
+                } else {
+                  if (chat.receiver_id === applicantResult[0].id) {
+                    await getUserDetails(chat, "received");
+                    console.log(processedChats);
+                  } else {
+                    await getUserDetails(chat, "sent");
+                    console.log(processedChats);
+                  }
+                }
+              });
+              setTimeout(() => {
+                console.log("processed chats", processedChats);
+                res.send(processedChats);
+              }, 1000);
+              // res.send({
+              //   applicantId: applicantResult[0].id,
+              //   chats: chatsResult,
+              // });
             }
           }
         );
@@ -415,30 +543,30 @@ app.get("/get-user", authorizeUser, (req, res) => {
   }
 });
 
-app.put("/post-msg", authorizeUser, (req, res) => {
-  if (!req.body.msg) {
-    res.send("Send in the message to post!");
-  } else if (!req.body.receiverId) {
-    res.send("Send in the sender id!");
-  } else {
-    db.query(
-      "SELECT id FROM users WHERE email_address = ?",
-      req.body.user_email,
-      (err, senderResult) => {
-        if (err) {
-          console.log(err);
-        } else {
-          db.query(
-            "INSERT INTO chats (receiver_id, sender_id, msg) VALUES(?, ?, ?)",
-            req.body.receiverId,
-            senderResult[0].id,
-            req.body.msg,
-            (err, chatsResult) => {
-              res.send("Message added!");
-            }
-          );
-        }
-      }
-    );
-  }
-});
+// app.put("/post-msg", authorizeUser, (req, res) => {
+//   if (!req.body.msg) {
+//     res.send("Send in the message to post!");
+//   } else if (!req.body.receiverId) {
+//     res.send("Send in the sender id!");
+//   } else {
+//     db.query(
+//       "SELECT id FROM users WHERE email_address = ?",
+//       req.body.user_email,
+//       (err, senderResult) => {
+//         if (err) {
+//           console.log(err);
+//         } else {
+//           db.query(
+//             "INSERT INTO chats (receiver_id, sender_id, msg) VALUES(?, ?, ?)",
+//             req.body.receiverId,
+//             senderResult[0].id,
+//             req.body.msg,
+//             (err, chatsResult) => {
+//               res.send("Message added!");
+//             }
+//           );
+//         }
+//       }
+//     );
+//   }
+// });

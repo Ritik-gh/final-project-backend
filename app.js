@@ -455,8 +455,8 @@ app.get("/get-chats", authorizeUser, (req, res) => {
                         processedChats.push({
                           enduser: {
                             id: enduserResult[0].id,
-                            firstName: enduserResult[0].first_name,
-                            lastName: enduserResult[0].last_name,
+                            first_name: enduserResult[0].first_name,
+                            last_name: enduserResult[0].last_name,
                           },
                           msgs: [
                             {

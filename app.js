@@ -7,6 +7,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { jwtKey, host, port } = require("./config.js");
 const { authorizeUser } = require("./middleware/auth.js");
+const { chownSync } = require("fs");
 const db = mysql.createConnection({
   host: host,
   user: "ritik",
@@ -438,44 +439,45 @@ app.get("/get-chats", authorizeUser, (req, res) => {
         db.query(
           "SELECT * FROM chats WHERE sender_id OR receiver_id = ?",
           applicantResult[0].id,
-          (err, chatsResult) => {
+          async (err, chatsResult) => {
             if (err) {
               console.log(err);
             } else {
-              async function getUserDetails(chat, type) {
+              function getUserDetails(chat, type) {
                 return new Promise((resolve, reject) => {
-                  resolve(
-                    db.query(
-                      "SELECT * FROM users WHERE id = ?",
-                      type === "sent" ? chat.receiver_id : chat.sender_id,
-                      (err, enduserResult) => {
-                        if (err) {
-                          console.log(err);
-                        } else {
-                          processedChats.push({
-                            enduser: {
-                              id: enduserResult[0].id,
-                              firstName: enduserResult[0].first_name,
-                              lastName: enduserResult[0].last_name,
+                  db.query(
+                    "SELECT * FROM users WHERE id = ?",
+                    type === "sent" ? chat.receiver_id : chat.sender_id,
+                    (err, enduserResult) => {
+                      if (err) {
+                        console.log(err);
+                      } else {
+                        processedChats.push({
+                          enduser: {
+                            id: enduserResult[0].id,
+                            firstName: enduserResult[0].first_name,
+                            lastName: enduserResult[0].last_name,
+                          },
+                          msgs: [
+                            {
+                              type: type,
+                              msg: chat.msg,
                             },
-                            msgs: [
-                              {
-                                type: type,
-                                msg: chat.msg,
-                              },
-                            ],
-                          });
-                        }
+                          ],
+                        });
+                        resolve();
                       }
-                    )
+                    }
                   );
                 });
               }
-              chatsResult.forEach(async (chat, index) => {
+              for (chat of chatsResult) {
                 console.log("length is ", processedChats.length);
+
                 if (processedChats.length > 0) {
+                  console.log("is greater than zero");
                   let enduserFound = false;
-                  processedChats.forEach(async (processedChat) => {
+                  for (processedChat of processedChats) {
                     if (processedChat.enduser.id === chat.receiver_id) {
                       processedChat.msgs.push({
                         type: "sent",
@@ -489,7 +491,7 @@ app.get("/get-chats", authorizeUser, (req, res) => {
                       });
                       enduserFound = true;
                     }
-                  });
+                  }
                   if (!enduserFound) {
                     if (chat.receiver_id === applicantResult[0].id) {
                       await getUserDetails(chat, "received");
@@ -508,7 +510,7 @@ app.get("/get-chats", authorizeUser, (req, res) => {
                     console.log(processedChats);
                   }
                 }
-              });
+              }
               setTimeout(() => {
                 console.log("processed chats", processedChats);
                 res.send(processedChats);

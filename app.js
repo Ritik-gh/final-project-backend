@@ -81,14 +81,14 @@ io.on("connection", (socket) => {
 
   // if token not sent, emit error
   if (!senderId) {
-    io.emit("connect_error", "Send auth token");
+    io.emit("connectError", "Send auth token");
   }
   // verify user
   else {
     jwt.verify(senderId, jwtKey, (err, jwtResult) => {
       // if not authorised
       if (err) {
-        socket.emit("connect_error", new Error("Unauthorised user id"));
+        socket.emit("connectError", new Error("Unauthorised user id"));
       }
       // get id from table
       else {
@@ -97,7 +97,7 @@ io.on("connection", (socket) => {
           jwtResult.email,
           (err, usersResult) => {
             if (err) {
-              socket.emit("connect_error", "User not Found");
+              socket.emit("connectError", "User not Found");
             } else {
               // join user to its own private room, and listen for upcoming messages
               socket.join(usersResult[0].id.toString());
@@ -107,7 +107,7 @@ io.on("connection", (socket) => {
               socket.on("send_msg", ({ msg, receiverId }) => {
                 console.log(`${msg} was sent to ${receiverId}`);
                 // send the message to recipient, and add the message to table
-                io.to(receiverId).emit("receive_msg", msg);
+                io.to(receiverId.toString()).emit("receive_msg", msg);
                 db.query(
                   "INSERT INTO chats (sender_id, receiver_id, msg) VALUES(?, ?, ?)",
                   [usersResult[0].id, receiverId, msg],
@@ -511,10 +511,8 @@ app.get("/get-chats", authorizeUser, (req, res) => {
                   }
                 }
               }
-              setTimeout(() => {
-                console.log("processed chats", processedChats);
-                res.send(processedChats);
-              }, 1000);
+              console.log("processed chats", processedChats);
+              res.send(processedChats);
               // res.send({
               //   applicantId: applicantResult[0].id,
               //   chats: chatsResult,

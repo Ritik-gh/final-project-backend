@@ -166,9 +166,8 @@ app.put("/register", (req, res) => {
         console.log(err);
       }
       if (result.length > 0) {
-        res.send("already exists");
+        res.send("user already exists");
       } else {
-        res.send("doesn't exist");
         const hashedPassword = await bcrypt.hash(req.body.password, 10);
         db.query(
           "INSERT INTO users (first_name, last_name, user_password, email_address, phone_no) VALUES (?, ?, ?, ?, ?)",
@@ -185,6 +184,10 @@ app.put("/register", (req, res) => {
             }
           }
         );
+        res.send({
+          status: true,
+          msg: "Registered Successfully!",
+        });
       }
     }
   );
@@ -532,6 +535,43 @@ app.get("/get-user", authorizeUser, (req, res) => {
           console.log(err);
         } else {
           res.send(result[0]);
+        }
+      }
+    );
+  }
+});
+
+app.put("/change-password", authorizeUser, async (req, res) => {
+  if (!req.body.newPassword) {
+    res.send({
+      status: false,
+      msg: "Send in the new password",
+    });
+  } else {
+    const hashedPassword = await bcrypt.hash(req.body.newPassword, 10);
+    db.query(
+      "SELECT * FROM users WHERE id = ?",
+      req.body.user_email,
+      (err, usersResult) => {
+        if (err) {
+          res.send({
+            status: false,
+            msg: "Something went wrong",
+          });
+        } else {
+          db.query(
+            "UPDATE users SET user_password = ? WHERE id = ?",
+            [hashedPassword, usersResult[0]],
+            (err, result) => {
+              if (err) {
+                console.log(err);
+              }
+            }
+          );
+          res.send({
+            status: false,
+            msg: "Password Changed Successfully",
+          });
         }
       }
     );

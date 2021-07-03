@@ -10,6 +10,7 @@ function authorizeUser(req, res, next) {
       if (err) {
         res.sendStatus(401);
       } else {
+        console.log("email is ", result.email);
         req.body.user_email = result.email;
         next();
       }

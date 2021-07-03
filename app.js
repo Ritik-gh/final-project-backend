@@ -436,9 +436,10 @@ app.get("/get-chats", authorizeUser, (req, res) => {
       if (err) {
         console.log(err);
       } else {
+        console.log(applicantResult, "requested chat");
         db.query(
-          "SELECT * FROM chats WHERE sender_id OR receiver_id = ?",
-          applicantResult[0].id,
+          "SELECT * FROM chats WHERE sender_id = ? OR receiver_id = ?",
+          [applicantResult[0].id, applicantResult[0].id],
           async (err, chatsResult) => {
             if (err) {
               console.log(err);
@@ -472,10 +473,7 @@ app.get("/get-chats", authorizeUser, (req, res) => {
                 });
               }
               for (chat of chatsResult) {
-                console.log("length is ", processedChats.length);
-
                 if (processedChats.length > 0) {
-                  console.log("is greater than zero");
                   let enduserFound = false;
                   for (processedChat of processedChats) {
                     if (processedChat.enduser.id === chat.receiver_id) {
@@ -495,23 +493,20 @@ app.get("/get-chats", authorizeUser, (req, res) => {
                   if (!enduserFound) {
                     if (chat.receiver_id === applicantResult[0].id) {
                       await getUserDetails(chat, "received");
-                      console.log(processedChats);
                     } else {
                       await getUserDetails(chat, "sent");
-                      console.log(processedChats);
                     }
                   }
                 } else {
                   if (chat.receiver_id === applicantResult[0].id) {
                     await getUserDetails(chat, "received");
-                    console.log(processedChats);
                   } else {
                     await getUserDetails(chat, "sent");
-                    console.log(processedChats);
                   }
                 }
               }
-              console.log("processed chats", processedChats);
+              console.log(applicantResult[0], "1");
+              console.log(chatsResult[0], "2");
               res.send(processedChats);
               // res.send({
               //   applicantId: applicantResult[0].id,

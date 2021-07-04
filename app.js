@@ -107,7 +107,10 @@ io.on("connection", (socket) => {
               socket.on("send_msg", ({ msg, receiverId }) => {
                 console.log(`${msg} was sent to ${receiverId}`);
                 // send the message to recipient, and add the message to table
-                io.to(receiverId.toString()).emit("receive_msg", msg);
+                io.to(receiverId.toString()).emit("receive_msg", {
+                  senderId: usersResult[0].id,
+                  msg: msg,
+                });
                 db.query(
                   "INSERT INTO chats (sender_id, receiver_id, msg) VALUES(?, ?, ?)",
                   [usersResult[0].id, receiverId, msg],

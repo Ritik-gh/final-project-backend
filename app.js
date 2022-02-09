@@ -63,6 +63,32 @@ db.connect((err) => {
 // );
 
 const app = express();
+
+app.use(cors());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+// serve images
+app.use("/images", express.static("images"));
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "./images/db-images/posts");
+  },
+  filename: function (req, file, cb) {
+    cb(
+      null,
+      path.basename(file.originalname, path.extname(file.originalname)) +
+        "-" +
+        Date.now() +
+        path.extname(file.originalname)
+    );
+  },
+});
+
+const upload = multer({
+  storage: storage,
+});
+
 const httpServer = require("http").createServer(app);
 const io = require("socket.io")(httpServer, {
   cors: {
@@ -129,31 +155,6 @@ io.on("connection", (socket) => {
       }
     });
   }
-});
-
-app.use(cors());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-// serve images
-app.use("/images", express.static("images"));
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "./images/db-images/posts");
-  },
-  filename: function (req, file, cb) {
-    cb(
-      null,
-      path.basename(file.originalname, path.extname(file.originalname)) +
-        "-" +
-        Date.now() +
-        path.extname(file.originalname)
-    );
-  },
-});
-
-const upload = multer({
-  storage: storage,
 });
 
 app.get("/", (req, res) => {
@@ -399,17 +400,30 @@ app.put("/place-bid", authorizeUser, (req, res) => {
       if (err) {
         console.log(err);
       } else {
-        db.query(
-          "UPDATE posts SET highest_bid = ?, highest_bidder_id = ?  WHERE post_id = ?",
-          [req.body.bidPrice, usersResult[0].id, req.body.postId],
-          (err, postsResult) => {
-            if (err) {
-              console.log(err);
-            } else {
-              res.send("Bid Placed");
+        if (!req.body.bidPrice) {
+          res.status(400).send("Send Bid Price!");
+        } else if (!req.body.postId) {
+          res.status(400).send("Send post id!");
+        } else {
+          db.query(
+            "UPDATE posts SET highest_bid = ?, highest_bidder_id = ?  WHERE post_id = ?",
+            [req.body.bidPrice, usersResult[0].id, req.body.postId],
+            (err, postsResult) => {
+              if (err) {
+                console.log(err);
+              } else {
+                console.log(
+                  "placed bid results",
+                  req.body.bidPrice,
+                  usersResult[0].id,
+                  req.body.postId,
+                  postsResult
+                );
+                res.send("Bid Placed");
+              }
             }
-          }
-        );
+          );
+        }
       }
     }
   );
